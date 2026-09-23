@@ -4,150 +4,259 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>scoobydoo.ca</title>
-<meta name="description" content="Just an old house on a hill.">
+<meta name="description" content="One of these cubes is a door.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,300;125,500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --dusk: #2B1D4A;
-    --horizon: #7A4A7E;
-    --moon: #F5E9B8;
-    --mint: #DDF5E7;
-    --van: #2F6B5E;
-    --lamp: #F2A33A;
-    --flower: #E8743B;
+    --black: #000000;
+    --graphite: #1C1D1F;
+    --smoke: #7E8388;
+    --bone: #D9DCDF;
   }
   * { margin: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
-    background: var(--dusk);
-    color: var(--mint);
-    font: 400 1.125rem/1.55 "Atkinson Hyperlegible", system-ui, sans-serif;
+    background: var(--black);
+    color: var(--bone);
+    font-family: "Archivo", system-ui, sans-serif;
+    font-stretch: 125%;
     overflow: hidden;
   }
-  .scene {
+  canvas {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
+    display: block;
+    touch-action: none;
   }
-  .copy {
-    position: relative;
-    z-index: 1;
-    max-width: 34rem;
-    padding: clamp(2rem, 7vw, 5rem) clamp(1rem, 6vw, 5rem);
+  .mark {
+    position: fixed;
+    left: clamp(1rem, 5vw, 4rem);
+    bottom: clamp(1.5rem, 6vh, 4rem);
+    pointer-events: none;
+    text-shadow: 0 1px 16px rgba(0, 0, 0, 0.9);
   }
-  h1 {
-    font: 400 clamp(2.75rem, 8vw, 5.5rem)/1 "Shrikhand", Georgia, serif;
-    transform: rotate(-3deg);
-    transform-origin: left bottom;
-    text-shadow: 0.06em 0.06em 0 var(--flower);
-    margin-bottom: 1.25rem;
+  .mark h1 {
+    font-weight: 300;
+    font-size: clamp(1.5rem, 3.2vw, 2.5rem);
+    letter-spacing: -0.01em;
+    line-height: 1.1;
   }
-  .copy p { max-width: 26ch; opacity: 0.9; }
-
-  .lit { fill: var(--lamp); filter: drop-shadow(0 0 6px rgba(242, 163, 58, 0.7)); }
-  .dark { fill: #3A2A5E; }
-
-  .secret circle.pane { fill: var(--lamp); transition: fill 0.2s, filter 0.2s; }
-  .secret:hover circle.pane,
-  .secret:focus-visible circle.pane {
-    fill: #FFE08A;
-    filter: drop-shadow(0 0 14px #FFE08A);
+  .mark p {
+    margin-top: 0.5rem;
+    font-weight: 300;
+    font-size: 0.9375rem;
+    color: var(--smoke);
   }
-  .secret:focus-visible { outline: none; }
-  .secret:focus-visible circle.ring { stroke: var(--mint); stroke-width: 3; }
-  .secret circle.hit { fill: transparent; }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .secret circle.pane { animation: flicker 1.4s 2.5s 1 steps(1, end); }
+  .door {
+    position: fixed;
+    left: clamp(1rem, 5vw, 4rem);
+    top: 1rem;
+    padding: 0.5rem 0.75rem;
+    color: var(--bone);
+    background: var(--graphite);
+    border: 1px solid var(--smoke);
+    font-weight: 500;
+    text-decoration: none;
+    transform: translateY(-200%);
   }
-  @keyframes flicker {
-    0%   { fill: var(--lamp); }
-    10%  { fill: #3A2A5E; }
-    18%  { fill: var(--lamp); }
-    30%  { fill: #3A2A5E; }
-    45%  { fill: #FFE08A; }
-    100% { fill: var(--lamp); }
-  }
+  .door:focus-visible { transform: none; outline: 2px solid var(--bone); outline-offset: 2px; }
 </style>
 </head>
 <body>
 
-<svg class="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="false" role="img" aria-labelledby="scene-title">
-  <title id="scene-title">An old house on a hill under a full moon</title>
-  <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2B1D4A"/>
-      <stop offset="0.75" stop-color="#7A4A7E"/>
-    </linearGradient>
-  </defs>
+<a class="door" href="https://jellyfin.scoobydoo.ca">Open the door</a>
+<canvas aria-label="A wall of glossy black cubes that sink back where you point, letting light through"></canvas>
+<div class="mark">
+  <h1>scoobydoo.ca</h1>
+  <p>One of these cubes is a door.</p>
+</div>
 
-  <rect width="1600" height="900" fill="url(#sky)"/>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
-  <g fill="#F5E9B8" opacity="0.8">
-    <circle cx="120" cy="420" r="2"/><circle cx="260" cy="340" r="1.5"/>
-    <circle cx="520" cy="300" r="2"/><circle cx="1240" cy="140" r="1.5"/>
-    <circle cx="1380" cy="260" r="2"/><circle cx="1500" cy="90" r="1.5"/>
-    <circle cx="640" cy="120" r="1.5"/><circle cx="1120" cy="380" r="1.5"/>
-  </g>
+const DOOR = "https://jellyfin.scoobydoo.ca";
+const STEP = 0.40;            // grid spacing; the Blender cube is 0.36, leaving a 0.04 gap
+const PUSH = 0.6;             // how far cubes sink under the pointer
+const SIGMA2 = 2 * 1.0 * 1.0; // width of the press
+const still = matchMedia("(prefers-reduced-motion: reduce)");
 
-  <circle cx="900" cy="250" r="120" fill="#F5E9B8"/>
+const canvas = document.querySelector("canvas");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x000000);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
-  <path d="M0,700 C300,620 600,640 900,660 C1100,670 1300,610 1600,640 L1600,900 L0,900Z" fill="#3E2C63"/>
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+camera.position.set(1.0, -0.5, 10);
+camera.lookAt(0, 0, 0);
 
-  <!-- the house -->
-  <g fill="#1E1535">
-    <rect x="660" y="470" width="260" height="195"/>
-    <polygon points="640,472 790,368 940,472"/>
-    <rect x="880" y="380" width="70" height="285"/>
-    <polygon points="870,382 915,290 960,382"/>
-    <rect x="695" y="400" width="18" height="50"/>
-  </g>
-  <rect class="lit"  x="690" y="500" width="30" height="44"/>
-  <rect class="dark" x="740" y="500" width="30" height="44"/>
-  <rect class="lit"  x="840" y="500" width="30" height="44"/>
-  <rect class="dark" x="690" y="580" width="30" height="44"/>
-  <rect class="dark" x="840" y="580" width="30" height="44"/>
-  <rect class="dark" x="775" y="595" width="30" height="70"/>
-  <rect class="dark" x="900" y="410" width="30" height="40"/>
-  <rect class="lit"  x="900" y="500" width="30" height="40"/>
+// Reflection environment: the same vertical gradient as the Blender world,
+// bright overhead and fading to black below. Nothing with a shape to mirror.
+const pmrem = new THREE.PMREMGenerator(renderer);
+const skyScene = new THREE.Scene();
+skyScene.add(new THREE.Mesh(
+  new THREE.SphereGeometry(50, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    vertexShader: "varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: "varying vec3 vDir; void main(){ float t = pow(clamp((vDir.y + 0.3) / 1.3, 0.0, 1.0), 2.5); gl_FragColor = vec4(vec3(0.85, 0.86, 0.88) * t, 1.0); }",
+  })
+));
+scene.environment = pmrem.fromScene(skyScene, 0).texture;
+scene.environmentIntensity = 3.0;
 
-  <a class="secret" href="https://jellyfin.scoobydoo.ca" aria-label="Go inside">
-    <circle class="hit" cx="790" cy="425" r="34"/>
-    <circle class="ring" cx="790" cy="425" r="22" fill="none"/>
-    <circle class="pane" cx="790" cy="425" r="17"/>
-  </a>
+const overhead = new THREE.DirectionalLight(0xffffff, 1.6);
+overhead.position.set(0, 8, 6);
+scene.add(overhead);
 
-  <!-- dead tree -->
-  <g stroke="#1E1535" stroke-linecap="round" fill="none" transform="translate(900 0)">
-    <path d="M330,720 C325,640 340,560 320,470" stroke-width="16"/>
-    <path d="M325,560 C290,530 270,500 240,490" stroke-width="7"/>
-    <path d="M328,520 C360,490 390,480 420,440" stroke-width="7"/>
-    <path d="M320,470 C310,430 300,410 280,390" stroke-width="5"/>
-    <path d="M395,465 C410,450 440,452 455,445" stroke-width="4"/>
-  </g>
+// Behind the wall: a backdrop that glows in a soft pool under the pointer,
+// and a point light there that catches the sides of the sunken cubes.
+const COOL = new THREE.Color(0.92, 0.95, 1.0);
+const WARM = new THREE.Color(1.0, 0.72, 0.42);
+const glowUniforms = {
+  uCenter: { value: new THREE.Vector2(0, -99) },
+  uStrength: { value: 0 },
+  uColor: { value: COOL.clone() },
+};
+const backdrop = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 50),
+  new THREE.ShaderMaterial({
+    uniforms: glowUniforms,
+    vertexShader: "varying vec2 vXY; void main(){ vXY = (modelMatrix * vec4(position, 1.0)).xy; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }",
+    fragmentShader: "uniform vec2 uCenter; uniform float uStrength; uniform vec3 uColor; varying vec2 vXY; void main(){ float f = pow(clamp(1.0 - length(vXY - uCenter) / 3.2, 0.0, 1.0), 2.2); gl_FragColor = vec4(uColor * f * uStrength * 3.0, 1.0); }",
+  })
+);
+backdrop.position.z = -1.9;
+scene.add(backdrop);
 
-  <path d="M0,790 C400,730 800,810 1200,765 C1400,745 1500,765 1600,755 L1600,900 L0,900Z" fill="#2F6B5E"/>
-  <path d="M0,850 C300,820 700,860 1000,840 C1300,820 1450,845 1600,835 L1600,900 L0,900Z" fill="#1F4A44"/>
-</svg>
+const backLight = new THREE.PointLight(0xeef2ff, 0, 4, 2);
+backLight.position.set(0, 0, -1.1);
+scene.add(backLight);
 
-<main class="copy">
-  <h1>Nothing to see here.</h1>
-  <p>Just an old house on a hill. The lights are on, but nobody's home.</p>
-</main>
+const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.08, metalness: 0 });
+const lacquer = [new THREE.Color("#0c0c0c"), new THREE.Color("#161616")];
 
-<script>
-  // Portrait screens: frame just the house instead of cropping it.
-  const scene = document.querySelector(".scene");
-  const portrait = matchMedia("(max-aspect-ratio: 3/4)");
-  const frame = () => {
-    scene.setAttribute("viewBox", portrait.matches ? "560 0 480 900" : "0 0 1600 900");
-    scene.setAttribute("preserveAspectRatio", portrait.matches ? "xMidYMax meet" : "xMidYMax slice");
-  };
-  frame();
-  portrait.addEventListener("change", frame);
+async function cubeGeometry() {
+  try {
+    const gltf = await new GLTFLoader().loadAsync("assets/cube.glb");
+    let geo = null;
+    gltf.scene.traverse(o => { if (!geo && o.isMesh) geo = o.geometry; });
+    if (geo) return geo;
+  } catch (err) {
+    console.warn("cube.glb failed to load, using a built-in cube", err);
+  }
+  return new RoundedBoxGeometry(0.36, 0.36, 0.36, 3, 0.02);
+}
+
+let geometry, mesh, cubes = [], doorId = -1, cols = 0, rows = 0;
+
+function visibleHalfExtents() {
+  const h = camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  return { w: h * camera.aspect, h };
+}
+
+function buildWall() {
+  const ext = visibleHalfExtents();
+  const c = Math.ceil((ext.w * 2 + 3) / STEP);
+  const r = Math.ceil((ext.h * 2 + 3) / STEP);
+  if (mesh && c === cols && r === rows) return;
+  cols = c; rows = r;
+  if (mesh) { scene.remove(mesh); mesh.dispose(); }
+  mesh = new THREE.InstancedMesh(geometry, material, cols * rows);
+  cubes = [];
+  const doorSpot = new THREE.Vector2(-0.55 * ext.w, 0.35 * ext.h);
+  let best = Infinity;
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const x = (i - (cols - 1) / 2) * STEP;
+      const y = (j - (rows - 1) / 2) * STEP;
+      const id = cubes.length;
+      cubes.push({ x, y, rest: (Math.random() - 0.5) * 0.06, phase: Math.random() * 6.283, push: 0 });
+      mesh.setColorAt(id, lacquer[0].clone().lerp(lacquer[1], Math.random()));
+      const d = doorSpot.distanceTo(new THREE.Vector2(x, y));
+      if (d < best) { best = d; doorId = id; }
+    }
+  }
+  scene.add(mesh);
+}
+
+// Pointer -> point on the wall plane.
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const wallPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+const hit = new THREE.Vector3(0, -99, 0);
+let pointerOn = false, aimed = 0, overDoor = false;
+
+function aim(e) {
+  ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  pointerOn = !!ray.ray.intersectPlane(wallPlane, hit);
+  const door = cubes[doorId];
+  overDoor = pointerOn && !!door && Math.abs(hit.x - door.x) < STEP / 2 && Math.abs(hit.y - door.y) < STEP / 2;
+  canvas.style.cursor = overDoor ? "pointer" : "default";
+}
+canvas.addEventListener("pointermove", aim);
+canvas.addEventListener("pointerleave", () => { pointerOn = false; overDoor = false; });
+canvas.addEventListener("pointerdown", e => { aim(e); if (overDoor) location.href = DOOR; });
+
+let resizeTimer = 0;
+function resize() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.fov = camera.aspect < 0.8 ? 48 : 32;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight, false);
+  if (geometry) buildWall();
+}
+addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 120); });
+
+const m4 = new THREE.Matrix4();
+const pos = new THREE.Vector3();
+const quat = new THREE.Quaternion();
+const one = new THREE.Vector3(1, 1, 1);
+
+function tick(ms) {
+  const t = ms / 1000;
+  const breathe = still.matches ? 0 : 0.04;
+  aimed += ((pointerOn ? 1 : 0) - aimed) * 0.08;
+
+  glowUniforms.uCenter.value.set(hit.x, hit.y);
+  glowUniforms.uStrength.value = aimed;
+  glowUniforms.uColor.value.lerp(overDoor ? WARM : COOL, 0.12);
+  backLight.position.set(hit.x, hit.y, -1.1);
+  backLight.intensity = aimed * 40;
+  backLight.color.copy(glowUniforms.uColor.value);
+
+  for (let i = 0; i < cubes.length; i++) {
+    const c = cubes[i];
+    const d2 = (c.x - hit.x) ** 2 + (c.y - hit.y) ** 2;
+    c.push += (aimed * PUSH * Math.exp(-d2 / SIGMA2) - c.push) * 0.14;
+    pos.set(c.x, c.y, c.rest + Math.sin(t * 1.4 + c.phase) * breathe - c.push);
+    m4.compose(pos, quat, one);
+    mesh.setMatrixAt(i, m4);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+
+geometry = await cubeGeometry();
+resize();
+buildWall();
+requestAnimationFrame(tick);
 </script>
 
 </body>

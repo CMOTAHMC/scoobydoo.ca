@@ -124,25 +124,25 @@ scene.add(overhead);
 
 // Behind the wall: a backdrop that glows in a soft pool under the pointer,
 // and a point light there that catches the sides of the sunken cubes.
-const COOL = new THREE.Color(0.92, 0.95, 1.0);
-const WARM = new THREE.Color(1.0, 0.72, 0.42);
+const GLOW = new THREE.Color(1.0, 0.06, 0.04);      // red seep
+const DOOR_GLOW = new THREE.Color(0.92, 0.95, 1.0); // the door glows white
 const glowUniforms = {
   uCenter: { value: new THREE.Vector2(0, -99) },
   uStrength: { value: 0 },
-  uColor: { value: COOL.clone() },
+  uColor: { value: GLOW.clone() },
 };
 const backdrop = new THREE.Mesh(
   new THREE.PlaneGeometry(80, 50),
   new THREE.ShaderMaterial({
     uniforms: glowUniforms,
     vertexShader: "varying vec2 vXY; void main(){ vXY = (modelMatrix * vec4(position, 1.0)).xy; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }",
-    fragmentShader: "uniform vec2 uCenter; uniform float uStrength; uniform vec3 uColor; varying vec2 vXY; void main(){ float f = pow(clamp(1.0 - length(vXY - uCenter) / 3.2, 0.0, 1.0), 2.2); gl_FragColor = vec4(uColor * f * uStrength * 3.0, 1.0); }",
+    fragmentShader: "uniform vec2 uCenter; uniform float uStrength; uniform vec3 uColor; varying vec2 vXY; void main(){ float f = pow(clamp(1.0 - length(vXY - uCenter) / 1.6, 0.0, 1.0), 2.2); gl_FragColor = vec4(uColor * f * uStrength * 3.0, 1.0); }",
   })
 );
 backdrop.position.z = -1.9;
 scene.add(backdrop);
 
-const backLight = new THREE.PointLight(0xeef2ff, 0, 4, 2);
+const backLight = new THREE.PointLight(0xff1008, 0, 2, 2);
 backLight.position.set(0, 0, -1.1);
 scene.add(backLight);
 
@@ -234,7 +234,7 @@ function tick(ms) {
 
   glowUniforms.uCenter.value.set(hit.x, hit.y);
   glowUniforms.uStrength.value = aimed;
-  glowUniforms.uColor.value.lerp(overDoor ? WARM : COOL, 0.12);
+  glowUniforms.uColor.value.lerp(overDoor ? DOOR_GLOW : GLOW, 0.12);
   backLight.position.set(hit.x, hit.y, -1.1);
   backLight.intensity = aimed * 40;
   backLight.color.copy(glowUniforms.uColor.value);

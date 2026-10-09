@@ -2,78 +2,267 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>scoobydoo.ca</title>
-<meta name="description" content="One of these cubes is a door.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vancouver Island, live</title>
+<meta name="description" content="A live 3D chart of Vancouver Island and the Salish Sea: wind, lighthouse weather, earthquakes, tides, ferries and roads.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,300;125,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --black: #000000;
-    --graphite: #1C1D1F;
-    --smoke: #7E8388;
-    --bone: #D9DCDF;
+    --sky: #C9E0E9;
+    --paper: #F7EFD9;
+    --ink: #2E2A24;
+    --ink-soft: #64584A;
+    --contour: #8C5E3C;
+    --magenta: #B0176E;
+    --rule: rgba(46, 42, 36, 0.28);
+    --gutter: clamp(0.75rem, 2.5vw, 1.5rem);
   }
-  * { margin: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
   body {
-    background: var(--black);
-    color: var(--bone);
-    font-family: "Archivo", system-ui, sans-serif;
-    font-stretch: 125%;
-    overflow: hidden;
+    background: var(--sky);
+    color: var(--ink);
+    font: 400 0.9375rem/1.45 "Instrument Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  canvas {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
-    touch-action: none;
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--magenta); outline-offset: 2px; }
+
+  /* Chart furniture: paper panels with the double rule of a printed chart's title block. */
+  .paper {
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    outline: 1px solid var(--ink);
+    outline-offset: 2px;
   }
-  .mark {
-    position: fixed;
-    left: clamp(1rem, 5vw, 4rem);
-    bottom: clamp(1.5rem, 6vh, 4rem);
+
+  header {
+    position: fixed; top: var(--gutter); left: var(--gutter);
     pointer-events: none;
-    text-shadow: 0 1px 16px rgba(0, 0, 0, 0.9);
+    transform-origin: 0 0;
+    transition: transform 1.4s cubic-bezier(.2,.7,.2,1);
   }
-  .mark h1 {
-    font-weight: 300;
-    font-size: clamp(1.5rem, 3.2vw, 2.5rem);
-    letter-spacing: -0.01em;
-    line-height: 1.1;
+  header h1 {
+    font: italic 400 2.25rem/1 "Newsreader", Georgia, serif;
+    letter-spacing: -0.015em;
+    text-shadow: 0 0 12px var(--sky), 0 0 2px var(--sky);
   }
-  .mark p {
-    margin-top: 0.5rem;
-    font-weight: 300;
-    font-size: 0.9375rem;
-    color: var(--smoke);
+  header p { margin-top: 0.25rem; color: var(--ink-soft); text-shadow: 0 0 8px var(--sky); }
+  body.intro header { transform: translate(min(6vw, 4rem), 34vh) scale(2.4); }
+  body.intro .chrome { opacity: 0; }
+  .chrome { transition: opacity 0.8s 0.9s; }
+
+  .status {
+    position: fixed; top: var(--gutter); right: var(--gutter);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;
   }
-  .door {
-    position: fixed;
-    left: clamp(1rem, 5vw, 4rem);
-    top: 1rem;
+  .clock { padding: 0.375rem 0.625rem; text-align: right; font-variant-numeric: tabular-nums; }
+  .clock strong { font-weight: 600; }
+  .clock button { text-decoration: underline; text-decoration-color: var(--contour); text-underline-offset: 2px; }
+
+  .views { display: flex; gap: 0.375rem; }
+  .views button {
+    padding: 0.3125rem 0.625rem;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    font-size: 0.875rem;
+  }
+  .views button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+  .north {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--paper); border: 1px solid var(--ink);
+  }
+  .north svg { transition: transform 0.1s linear; }
+
+  /* Legend doubles as the layer switch; each row shows the symbol it draws on the chart. */
+  .legend {
+    position: fixed; left: var(--gutter); bottom: var(--gutter);
+    padding: 0.625rem 0.75rem 0.75rem;
+    width: 15.5rem;
+  }
+  .legend h2 { font: italic 500 1.0625rem/1.2 "Newsreader", Georgia, serif; margin-bottom: 0.375rem; }
+  .layer {
+    display: grid; grid-template-columns: 1.25rem 1fr auto; align-items: center; gap: 0.5rem;
+    padding: 0.25rem 0;
+    border-top: 1px solid var(--rule);
+    cursor: pointer;
+  }
+  .layer input { position: absolute; opacity: 0; pointer-events: none; }
+  .layer .sym { width: 1.25rem; height: 1rem; display: grid; place-items: center; }
+  .layer .count { color: var(--ink-soft); font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+  .layer:has(input:not(:checked)) .sym, .layer:has(input:not(:checked)) .name { opacity: 0.35; }
+  .layer:has(input:not(:checked)) .name { text-decoration: line-through; }
+  .layer:has(input:focus-visible) { outline: 2px solid var(--magenta); outline-offset: 1px; }
+  .layer.failed .count { color: var(--magenta); }
+
+  .ramp { margin-top: 0.5rem; }
+  .ramp .bar { height: 6px; background: linear-gradient(90deg, #D98BB5, #C24A8A, #B0176E, #6E0A44); }
+  .ramp .ticks { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; margin-top: 0.125rem; }
+
+  .timeline {
+    position: fixed; left: 50%; bottom: var(--gutter);
+    transform: translateX(-50%);
+    width: min(32rem, calc(100vw - 2 * var(--gutter) - 17rem));
     padding: 0.5rem 0.75rem;
-    color: var(--bone);
-    background: var(--graphite);
-    border: 1px solid var(--smoke);
-    font-weight: 500;
-    text-decoration: none;
-    transform: translateY(-200%);
+    display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.75rem; align-items: center;
   }
-  .door:focus-visible { transform: none; outline: 2px solid var(--bone); outline-offset: 2px; }
+  .timeline .play { width: 2rem; height: 2rem; border: 1px solid var(--ink); display: grid; place-items: center; grid-row: span 2; }
+  .timeline label { font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+  .timeline label strong { font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--magenta); }
+
+  .card {
+    position: fixed; right: var(--gutter); top: 50%;
+    transform: translateY(-50%);
+    width: min(22rem, calc(100vw - 2 * var(--gutter)));
+    max-height: calc(100vh - 12rem);
+    overflow: auto;
+    padding: 1rem 1.125rem 1.125rem;
+    box-shadow: 0 18px 40px -24px rgba(46, 42, 36, 0.45);
+  }
+  .card[hidden] { display: none; }
+  .card h2 { font: italic 500 1.5rem/1.15 "Newsreader", Georgia, serif; padding-right: 3.5rem; }
+  .card .close { position: absolute; top: 0.75rem; right: 0.75rem; font-size: 0.8125rem; text-decoration: underline; text-underline-offset: 2px; }
+  .card p { margin-top: 0.5rem; color: var(--ink-soft); }
+  .card .big { margin-top: 0.75rem; color: var(--ink); display: flex; align-items: baseline; gap: 0.5rem; font-variant-numeric: tabular-nums; }
+  .card .big strong { font: 600 2.25rem/1 "Instrument Sans", sans-serif; letter-spacing: -0.02em; }
+  .card table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; font-variant-numeric: tabular-nums; }
+  .card caption { text-align: left; font: italic 400 1.0625rem/1.3 "Newsreader", Georgia, serif; padding-bottom: 0.25rem; }
+  .card th { text-align: left; font-weight: 500; font-size: 0.8125rem; color: var(--ink-soft); border-bottom: 1px solid var(--rule); padding: 0.25rem 0; }
+  .card td { border-bottom: 1px solid var(--rule); padding: 0.3125rem 0; }
+  .card td:last-child, .card th:last-child { text-align: right; }
+  .card tr.live td { color: var(--magenta); font-weight: 500; }
+  .card a { color: var(--ink); text-decoration-color: var(--contour); text-underline-offset: 2px; }
+
+  .tide-chart { margin-top: 0.75rem; position: relative; }
+  .tide-chart svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: none; }
+  .tide-chart .axis { stroke: var(--rule); }
+  .tide-chart .tick { fill: var(--ink-soft); font-size: 11px; }
+  .tide-chart .curve { fill: none; stroke: var(--magenta); stroke-width: 2; stroke-linejoin: round; }
+  .tide-chart .now { stroke: var(--ink); stroke-dasharray: 2 3; }
+  .tide-chart .dot { fill: var(--magenta); stroke: var(--paper); stroke-width: 2; }
+  .tide-chart .cross { stroke: var(--ink); }
+  .tip {
+    position: absolute; top: -0.25rem; transform: translate(-50%, -100%);
+    background: var(--ink); color: var(--paper);
+    font-size: 0.8125rem; font-variant-numeric: tabular-nums;
+    padding: 0.25rem 0.5rem; white-space: nowrap; pointer-events: none;
+  }
+
+  /* Symbols pinned to the chart. */
+  .markers { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .mk {
+    position: absolute; left: 0; top: 0;
+    display: flex; align-items: center; gap: 0.3rem;
+    white-space: nowrap;
+    font: italic 400 0.875rem/1 "Newsreader", Georgia, serif;
+    text-shadow: 0 0 3px var(--paper), 0 0 6px var(--paper);
+    pointer-events: auto;
+    padding: 4px;
+    margin: -4px;
+  }
+  .mk[data-off] { display: none; }
+  .mk .label { opacity: 0; transition: opacity 0.2s; }
+  /* Wind readings name themselves up close; everything else names itself on hover or focus. */
+  .mk.station.near .label, .mk:hover .label, .mk:focus-visible .label { opacity: 1; }
+  .mk:hover, .mk:focus-visible { z-index: 1; }
+  .mk.station .arrow { width: 22px; height: 22px; }
+  .mk.station .label { font: 600 0.75rem/1 "Instrument Sans", sans-serif; font-style: normal; font-variant-numeric: tabular-nums; }
+  .mk.quake i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); border: 2px solid var(--paper); }
+  .mk.road i { width: 9px; height: 9px; background: #D9A400; border: 1.5px solid var(--ink); transform: rotate(45deg); }
+  .mk.place i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--magenta); background: var(--paper); }
+  .mk.vessel i { width: 10px; height: 10px; border-radius: 50%; background: var(--magenta); border: 2px solid var(--paper); }
+  .mk.light i { width: 7px; height: 7px; background: var(--ink); transform: rotate(45deg); }
+  .mk.light { text-decoration: none; color: var(--ink); }
+
+  .door {
+    position: fixed; left: 1rem; top: 1rem; z-index: 5;
+    padding: 0.5rem 0.75rem; background: var(--paper); color: var(--ink); border: 1px solid var(--ink);
+    transform: translateY(-300%);
+  }
+  .door:focus-visible { transform: none; }
+
+  body.night { --sky: #1F2D3B; }
+  body.night header h1, body.night header p { color: #EEE6D2; text-shadow: 0 0 10px #1F2D3B; }
+
+  @media (max-width: 760px) {
+    header h1 { font-size: 1.625rem; }
+    header p { display: none; }
+    body.intro header { transform: translate(0, 30vh) scale(1.6); }
+    .status { top: auto; bottom: calc(var(--gutter) + 5.25rem); right: var(--gutter); }
+    .views { position: fixed; top: calc(var(--gutter) + 2.25rem); left: var(--gutter); right: var(--gutter); overflow-x: auto; }
+    .status { flex-direction: row; align-items: center; }
+    .clock { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+    #clock-time, #clock-sun { display: none; }
+    .legend { width: auto; right: var(--gutter); bottom: calc(var(--gutter) + 8.5rem); padding: 0.375rem 0.5rem; }
+    .legend h2, .ramp { display: none; }
+    .layers { display: flex; gap: 0.875rem; overflow-x: auto; }
+    .layer { border: 0; grid-template-columns: 1rem auto; gap: 0.25rem; white-space: nowrap; font-size: 0.875rem; }
+    .layer .count { display: none; }
+    .timeline { left: var(--gutter); right: var(--gutter); width: auto; transform: none; }
+    .card { top: auto; bottom: var(--gutter); transform: none; max-height: 60vh; z-index: 3; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    header, .chrome { transition: none; }
+  }
 </style>
 </head>
-<body>
+<body class="intro">
 
 <a class="door" href="https://jellyfin.scoobydoo.ca">Open the door</a>
-<canvas aria-label="A wall of glossy black cubes that sink back where you point, letting light through"></canvas>
-<div class="mark">
-  <h1>scoobydoo.ca</h1>
-  <p>One of these cubes is a door.</p>
+<canvas aria-label="A 3D chart of Vancouver Island and the Salish Sea. Drag to turn it, scroll or pinch to zoom."></canvas>
+<div class="markers"></div>
+
+<header>
+  <h1>Vancouver Island</h1>
+  <p>The island and the sea around it, live.</p>
+</header>
+
+<div class="chrome">
+  <div class="status">
+    <div class="views" role="group" aria-label="Jump to a view">
+      <button type="button" data-view="island" aria-pressed="true">Island</button>
+      <button type="button" data-view="victoria" aria-pressed="false">Victoria</button>
+      <button type="button" data-view="ferries" aria-pressed="false">Ferries</button>
+      <button type="button" data-view="straits" aria-pressed="false">Straits</button>
+    </div>
+    <div class="clock paper" aria-live="polite">
+      <div id="clock-time">&nbsp;</div>
+      <div id="clock-sun">&nbsp;</div>
+      <div><button type="button" id="clock-tide">Tide loading</button></div>
+    </div>
+    <div class="north" title="North"><svg id="north" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 17 20 12 16 7 20Z" fill="#2E2A24"/><path d="M12 2 12 16 7 20Z" fill="#F7EFD9" stroke="#2E2A24" stroke-width="1"/></svg></div>
+  </div>
+
+  <section class="legend paper" aria-label="Layers">
+    <h2>On the chart</h2>
+    <div class="layers">
+      <label class="layer" data-layer="wind"><input type="checkbox" checked><span class="sym"><svg width="20" height="10" aria-hidden="true"><path d="M1 7c4-5 9 2 18-4" stroke="#B0176E" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span><span class="name">Wind forecast</span><span class="count" id="n-wind"></span></label>
+      <label class="layer" data-layer="stations"><input type="checkbox" checked><span class="sym"><svg width="16" height="16" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 2 16 18 11 14 6 18Z" fill="#2E2A24"/></svg></span><span class="name">Lighthouse wind</span><span class="count" id="n-stations"></span></label>
+      <label class="layer" data-layer="quakes"><input type="checkbox" checked><span class="sym"><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="#2E2A24" stroke-width="1.5"/><circle cx="8" cy="8" r="2.5" fill="#2E2A24"/></svg></span><span class="name">Earthquakes, 30 days</span><span class="count" id="n-quakes"></span></label>
+      <label class="layer" data-layer="roads"><input type="checkbox" checked><span class="sym"><svg width="14" height="14" aria-hidden="true"><path d="M7 1 13 7 7 13 1 7Z" fill="#D9A400" stroke="#2E2A24" stroke-width="1.2"/></svg></span><span class="name">Road events</span><span class="count" id="n-roads"></span></label>
+      <label class="layer" data-layer="ferries"><input type="checkbox" checked><span class="sym"><svg width="20" height="10" aria-hidden="true"><path d="M1 5h18" stroke="#B0176E" stroke-width="2" stroke-dasharray="4 3"/></svg></span><span class="name">Ferries at sea</span><span class="count" id="n-ferries"></span></label>
+    </div>
+    <div class="ramp" aria-hidden="true"><div class="bar"></div><div class="ticks"><span>0</span><span>10</span><span>20</span><span>30</span><span>40 knots</span></div></div>
+  </section>
+
+  <section class="timeline paper" aria-label="Wind forecast time">
+    <button type="button" class="play" id="play" aria-label="Play the wind forecast"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path id="play-icon" d="M2 1 11 6 2 11Z" fill="#2E2A24"/></svg></button>
+    <label for="hour"><strong id="hour-label">Wind now</strong> <span id="hour-note"></span></label>
+    <input type="range" id="hour" min="0" max="36" step="1" value="0">
+  </section>
 </div>
+
+<aside class="card paper" id="card" hidden aria-live="polite">
+  <button type="button" class="close" id="card-close">Close</button>
+  <div id="card-body"></div>
+</aside>
 
 <script type="importmap">
 { "imports": {
@@ -84,180 +273,802 @@
 <script type="module">
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const DOOR = "https://jellyfin.scoobydoo.ca";
-const STEP = 0.40;            // grid spacing; the Blender cube is 0.36, leaving a 0.04 gap
-const PUSH = 0.6;             // how far cubes sink under the pointer
-const SIGMA2 = 2 * 1.0 * 1.0; // width of the press
-const still = matchMedia("(prefers-reduced-motion: reduce)");
+const BBOX = { w: -128.6, s: 48.2, e: -123.0, n: 51.0 };
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const narrow = matchMedia("(max-width: 760px)").matches;
+const $ = id => document.getElementById(id);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp01 = t => Math.min(1, Math.max(0, t));
+const KMH_TO_KN = 1 / 1.852, MS_TO_KN = 1.94384;
 
+// ---- Projection: lon/lat -> BC Albers (EPSG:3005) -> scene units (1 unit = 10 km) -----------
+// Same grid the terrain was baked on (tools/bake_terrain.py).
+const BOUNDS = [806291.10, 353839.68, 1223493.61, 669540.49];
+const SIZE = [41.8, 31.636];
+const albers = (() => {
+  const a = 6378137, f = 1 / 298.257222101, e2 = 2 * f - f * f, e = Math.sqrt(e2), rad = Math.PI / 180;
+  const m = p => Math.cos(p) / Math.sqrt(1 - e2 * Math.sin(p) ** 2);
+  const q = p => { const s = Math.sin(p); return (1 - e2) * (s / (1 - e2 * s * s) - Math.log((1 - e * s) / (1 + e * s)) / (2 * e)); };
+  const p1 = 50 * rad, p2 = 58.5 * rad, p0 = 45 * rad, l0 = -126 * rad;
+  const n = (m(p1) ** 2 - m(p2) ** 2) / (q(p2) - q(p1)), C = m(p1) ** 2 + n * q(p1), r0 = a * Math.sqrt(C - n * q(p0)) / n;
+  return (lon, lat) => {
+    const r = a * Math.sqrt(C - n * q(lat * rad)) / n, t = n * (lon * rad - l0);
+    return [1000000 + r * Math.sin(t), r0 - r * Math.cos(t)];
+  };
+})();
+function toXZ(lon, lat) {
+  const [E, N] = albers(lon, lat);
+  return [((E - BOUNDS[0]) / (BOUNDS[2] - BOUNDS[0]) - 0.5) * SIZE[0], -((N - BOUNDS[1]) / (BOUNDS[3] - BOUNDS[1]) - 0.5) * SIZE[1]];
+}
+
+// ---- Renderer, scene, controls ---------------------------------------------------------------
 const canvas = document.querySelector("canvas");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setClearColor(0x000000);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-camera.position.set(1.0, -0.5, 10);
-camera.lookAt(0, 0, 0);
+const DAY = { sky: new THREE.Color("#C9E0E9"), sea: new THREE.Color("#B9D8E4"), land: new THREE.Color("#FFFFFF") };
+const NIGHT = { sky: new THREE.Color("#1F2D3B"), sea: new THREE.Color("#22384A"), land: new THREE.Color("#5D6C86") };
+scene.fog = new THREE.Fog(DAY.sky.clone(), 35, 90);
+const camera = new THREE.PerspectiveCamera(35, 1, 0.3, 160);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 2.5;
+controls.maxDistance = 60;
+controls.maxPolarAngle = THREE.MathUtils.degToRad(78);
+controls.screenSpacePanning = false;
+controls.zoomToCursor = true;
+controls.addEventListener("change", () => controls.target.y = 0);
 
-// Reflection environment: the same vertical gradient as the Blender world,
-// bright overhead and fading to black below. Nothing with a shape to mirror.
-const pmrem = new THREE.PMREMGenerator(renderer);
-const skyScene = new THREE.Scene();
-skyScene.add(new THREE.Mesh(
-  new THREE.SphereGeometry(50, 32, 16),
+// ---- Sea: tide-driven height, slow ripples -------------------------------------------------
+// 1 m of real elevation = 0.0003 scene units (terrain is 3x exaggerated). Baked land starts at 1 m.
+const SEA_BASE = 0.0002, TIDE_GAIN = 0.0009; // a 3 m tide floods land below ~9 m
+const seaUniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uColor: { value: DAY.sea.clone() }, uNight: { value: 0 } }]);
+const sea = new THREE.Mesh(
+  new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2),
   new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    vertexShader: "varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-    fragmentShader: "varying vec3 vDir; void main(){ float t = pow(clamp((vDir.y + 0.3) / 1.3, 0.0, 1.0), 2.5); gl_FragColor = vec4(vec3(0.85, 0.86, 0.88) * t, 1.0); }",
-  })
-));
-scene.environment = pmrem.fromScene(skyScene, 0).texture;
-scene.environmentIntensity = 3.0;
-
-const overhead = new THREE.DirectionalLight(0xffffff, 1.6);
-overhead.position.set(0, 8, 6);
-scene.add(overhead);
-
-// Behind the wall: a backdrop that glows in a soft pool under the pointer,
-// and a point light there that catches the sides of the sunken cubes.
-const GLOW = new THREE.Color(1.0, 0.06, 0.04);      // red seep
-const DOOR_GLOW = new THREE.Color(0.92, 0.95, 1.0); // the door glows white
-const glowUniforms = {
-  uCenter: { value: new THREE.Vector2(0, -99) },
-  uStrength: { value: 0 },
-  uColor: { value: GLOW.clone() },
-};
-const backdrop = new THREE.Mesh(
-  new THREE.PlaneGeometry(80, 50),
-  new THREE.ShaderMaterial({
-    uniforms: glowUniforms,
-    vertexShader: "varying vec2 vXY; void main(){ vXY = (modelMatrix * vec4(position, 1.0)).xy; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }",
-    fragmentShader: "uniform vec2 uCenter; uniform float uStrength; uniform vec3 uColor; varying vec2 vXY; void main(){ float f = pow(clamp(1.0 - length(vXY - uCenter) / 1.6, 0.0, 1.0), 2.2); gl_FragColor = vec4(uColor * f * uStrength * 3.0, 1.0); }",
+    uniforms: seaUniforms, fog: true,
+    vertexShader: `
+      varying vec2 vXZ;
+      #include <fog_pars_vertex>
+      void main() {
+        vXZ = position.xz;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform float uTime; uniform vec3 uColor; uniform float uNight;
+      varying vec2 vXZ;
+      #include <fog_pars_fragment>
+      void main() {
+        // Fine, slow glints; kept faint so the sea still reads as one flat chart colour.
+        vec2 p = vXZ * 9.0;
+        float w = sin(p.x * 1.3 + uTime * 0.7) * sin(p.y * 1.1 - uTime * 0.5) + 0.5 * sin((p.x - p.y) * 2.2 + uTime * 1.1);
+        vec3 col = uColor * (1.0 + 0.012 * w) + vec3(0.03) * smoothstep(1.15, 1.45, w) * (1.0 - uNight);
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+        #include <fog_fragment>
+      }`,
   })
 );
-backdrop.position.z = -1.9;
-scene.add(backdrop);
+sea.position.y = SEA_BASE;
+scene.add(sea);
 
-const backLight = new THREE.PointLight(0xff1008, 0, 2, 2);
-backLight.position.set(0, 0, -1.1);
-scene.add(backLight);
+// ---- Island: baked, unlit terrain; height grid read straight from its vertices --------------
+let landMat = null;
+const GRID = { nx: 641, nz: 485, h: null };
+function groundY(x, z) {
+  if (!GRID.h) return 0;
+  const fx = clamp01((x + SIZE[0] / 2) / SIZE[0]) * (GRID.nx - 1), fz = clamp01((z + SIZE[1] / 2) / SIZE[1]) * (GRID.nz - 1);
+  const i = Math.min(GRID.nx - 2, fx | 0), j = Math.min(GRID.nz - 2, fz | 0), tx = fx - i, tz = fz - j, h = GRID.h, n = GRID.nx;
+  return lerp(lerp(h[j * n + i], h[j * n + i + 1], tx), lerp(h[(j + 1) * n + i], h[(j + 1) * n + i + 1], tx), tz);
+}
+async function loadIsland() {
+  const draco = new DRACOLoader().setDecoderPath("https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/");
+  const big = innerWidth * Math.min(devicePixelRatio, 2) > 1400;
+  const [gltf, tex] = await Promise.all([
+    new GLTFLoader().setDRACOLoader(draco).loadAsync("assets/island/island.glb"),
+    new THREE.TextureLoader().loadAsync(big ? "assets/island/island_4k.jpg" : "assets/island/island_2k.jpg"),
+  ]);
+  tex.flipY = false;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  landMat = new THREE.MeshBasicMaterial({ map: tex });
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    o.material = landMat;
+    const pos = o.geometry.attributes.position, h = new Float32Array(GRID.nx * GRID.nz);
+    for (let k = 0; k < pos.count; k++) {
+      const i = Math.round((pos.getX(k) + SIZE[0] / 2) / SIZE[0] * (GRID.nx - 1));
+      const j = Math.round((pos.getZ(k) + SIZE[1] / 2) / SIZE[1] * (GRID.nz - 1));
+      if (i >= 0 && i < GRID.nx && j >= 0 && j < GRID.nz) h[j * GRID.nx + i] = pos.getY(k);
+    }
+    GRID.h = h;
+  });
+  scene.add(gltf.scene);
+  draco.dispose();
+}
+function onGround(lon, lat, lift = 0.015) {
+  const [x, z] = toXZ(lon, lat);
+  return new THREE.Vector3(x, Math.max(groundY(x, z), sea.position.y) + lift, z);
+}
 
-const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.08, metalness: 0 });
-const lacquer = [new THREE.Color("#0c0c0c"), new THREE.Color("#161616")];
+// ---- Views -----------------------------------------------------------------------------------
+// target lon/lat, distance, azimuth (degrees; 0 = camera due south of the target), elevation.
+const VIEWS = {
+  island:   { lon: -125.3, lat: 49.55, dist: 36, az: -18, el: 46 },
+  victoria: { lon: -123.42, lat: 48.47, dist: 8, az: -20, el: 48 },
+  ferries:  { lon: -123.29, lat: 48.85, dist: 7.5, az: -35, el: 55 },
+  straits:  { lon: -123.6, lat: 48.6, dist: 19, az: -12, el: 50 },
+};
+function pose(v) {
+  const [x, z] = toXZ(v.lon, v.lat);
+  const az = THREE.MathUtils.degToRad(v.az), el = THREE.MathUtils.degToRad(v.el);
+  return {
+    target: new THREE.Vector3(x, 0, z),
+    pos: new THREE.Vector3(x + v.dist * Math.cos(el) * Math.sin(az), v.dist * Math.sin(el), z + v.dist * Math.cos(el) * Math.cos(az)),
+  };
+}
+let flight = null;
+function flyTo(name, ms = 1600) {
+  const to = pose(VIEWS[name]);
+  for (const b of document.querySelectorAll(".views button")) b.setAttribute("aria-pressed", String(b.dataset.view === name));
+  if (still || ms === 0) { camera.position.copy(to.pos); controls.target.copy(to.target); controls.update(); flight = null; return; }
+  flight = { t0: performance.now(), ms, fromPos: camera.position.clone(), fromTarget: controls.target.clone(), to };
+}
+function stepFlight(now) {
+  if (!flight) return;
+  const t = clamp01((now - flight.t0) / flight.ms), e = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+  controls.target.lerpVectors(flight.fromTarget, flight.to.target, e);
+  camera.position.lerpVectors(flight.fromPos, flight.to.pos, e);
+  // Rise a little mid-flight so long hops read as flying, not sliding.
+  camera.position.y += Math.sin(e * Math.PI) * flight.fromPos.distanceTo(flight.to.pos) * 0.15;
+  if (t === 1) flight = null;
+}
+controls.addEventListener("start", () => {
+  flight = null;
+  for (const b of document.querySelectorAll(".views button")) b.setAttribute("aria-pressed", "false");
+});
+for (const b of document.querySelectorAll(".views button")) b.addEventListener("click", () => flyTo(b.dataset.view));
 
-async function cubeGeometry() {
-  try {
-    const gltf = await new GLTFLoader().loadAsync("assets/cube.glb");
-    let geo = null;
-    gltf.scene.traverse(o => { if (!geo && o.isMesh) geo = o.geometry; });
-    if (geo) return geo;
-  } catch (err) {
-    console.warn("cube.glb failed to load, using a built-in cube", err);
+// ---- Markers ---------------------------------------------------------------------------------
+const layer = document.querySelector(".markers");
+const markers = [];
+const layerOn = { wind: true, stations: true, quakes: true, roads: true, ferries: true };
+function addMarker({ lon, lat, cls, html = "<i></i>", label, layerName, nearOnly = 0, onClick, el, lift }) {
+  const node = el || document.createElement(onClick ? "button" : "div");
+  node.className = `mk ${cls}`;
+  node.innerHTML = html + (label ? `<span class="label"></span>` : "");
+  if (label) node.querySelector(".label").textContent = label;
+  if (onClick) { node.type = "button"; node.addEventListener("click", e => { e.stopPropagation(); onClick(); }); }
+  layer.append(node);
+  const m = { node, lon, lat, layerName, nearOnly, pos: null, lift };
+  markers.push(m);
+  return m;
+}
+const proj = new THREE.Vector3();
+function placeMarkers() {
+  const w = innerWidth, h = innerHeight, dist = camera.position.distanceTo(controls.target);
+  for (const m of markers) {
+    if (!m.pos) { if (!GRID.h || m.lon == null) continue; m.pos = onGround(m.lon, m.lat, m.lift); }
+    proj.copy(m.pos).project(camera);
+    const off = (m.layerName && !layerOn[m.layerName]) || proj.z > 1 || Math.abs(proj.x) > 1.1 || Math.abs(proj.y) > 1.1 || (m.nearOnly && dist > m.nearOnly);
+    if (off) { m.node.dataset.off = ""; continue; }
+    delete m.node.dataset.off;
+    m.node.classList.toggle("near", dist < 12);
+    m.node.style.transform = `translate(${((proj.x + 1) / 2 * w).toFixed(1)}px, ${((1 - proj.y) / 2 * h).toFixed(1)}px) translate(-${m.node.dataset.ax || 50}%, -50%)`;
   }
-  return new RoundedBoxGeometry(0.36, 0.36, 0.36, 3, 0.02);
 }
 
-let geometry, mesh, cubes = [], doorId = -1, cols = 0, rows = 0;
+// ---- Detail card -------------------------------------------------------------------------------
+const card = $("card"), cardBody = $("card-body");
+let cardKind = null;
+function openCard(kind, build) {
+  cardKind = kind;
+  cardBody.replaceChildren();
+  build(cardBody);
+  card.hidden = false;
+}
+function closeCard() { card.hidden = true; cardKind = null; tideOverride = null; }
+$("card-close").addEventListener("click", closeCard);
+addEventListener("keydown", e => { if (e.key === "Escape") closeCard(); });
+const h = (tag, text, cls) => { const n = document.createElement(tag); if (text != null) n.textContent = text; if (cls) n.className = cls; return n; };
 
-function visibleHalfExtents() {
-  const h = camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  return { w: h * camera.aspect, h };
+// ---- Time formatting -------------------------------------------------------------------------
+const TZ = "America/Vancouver";
+const fmtTime = new Intl.DateTimeFormat("en-CA", { hour: "numeric", minute: "2-digit", timeZone: TZ });
+const fmtDayTime = new Intl.DateTimeFormat("en-CA", { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: TZ });
+const fmtDayHour = new Intl.DateTimeFormat("en-CA", { weekday: "short", hour: "numeric", timeZone: TZ });
+const fmtHour = new Intl.DateTimeFormat("en-CA", { hour: "numeric", timeZone: TZ });
+function ago(ms) {
+  const m = Math.round((Date.now() - ms) / 60e3);
+  if (m < 60) return `${m} minutes ago`;
+  const hrs = Math.round(m / 60);
+  return hrs < 36 ? `${hrs} hours ago` : `${Math.round(hrs / 24)} days ago`;
+}
+const COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+const compass = deg => COMPASS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+
+// ---- Sun: real position over Victoria; the chart goes to night after sunset -------------------
+function sunAltitude(date, lat = 48.43, lon = -123.37) {
+  const rad = Math.PI / 180, d = date / 864e5 - 10957.5; // days since J2000
+  const M = rad * (357.5291 + 0.98560028 * d);
+  const L = M + rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M)) + rad * 102.9372 + Math.PI;
+  const dec = Math.asin(Math.sin(L) * Math.sin(rad * 23.4397));
+  const ra = Math.atan2(Math.sin(L) * Math.cos(rad * 23.4397), Math.cos(L));
+  const H = rad * (280.16 + 360.9856235 * d) + rad * lon - ra;
+  return Math.asin(Math.sin(rad * lat) * Math.sin(dec) + Math.cos(rad * lat) * Math.cos(dec) * Math.cos(H)) / rad;
+}
+function nextSunEvent() {
+  const up = sunAltitude(Date.now()) > -0.833;
+  for (let t = Date.now(); t < Date.now() + 864e5; t += 60e3) {
+    if ((sunAltitude(t) > -0.833) !== up) return { up, t };
+  }
+  return { up, t: null };
+}
+let night = 0;
+function updateSky() {
+  const alt = sunAltitude(Date.now());
+  night = clamp01((2 - alt) / 10); // full night once the sun is 8 degrees below the horizon
+  document.body.classList.toggle("night", night > 0.5);
+  const sky = DAY.sky.clone().lerp(NIGHT.sky, night);
+  renderer.setClearColor(sky);
+  scene.fog.color.copy(sky);
+  seaUniforms.uColor.value.copy(DAY.sea).lerp(NIGHT.sea, night);
+  seaUniforms.uNight.value = night;
+  if (landMat) landMat.color.copy(DAY.land).lerp(NIGHT.land, night);
+  const ev = nextSunEvent();
+  $("clock-time").textContent = `${fmtDayTime.format(Date.now())} in Victoria`;
+  $("clock-sun").textContent = ev.t ? `${ev.up ? "Sunset" : "Sunrise"} at ${fmtTime.format(ev.t)}` : "";
 }
 
-function buildWall() {
-  const ext = visibleHalfExtents();
-  const c = Math.ceil((ext.w * 2 + 3) / STEP);
-  const r = Math.ceil((ext.h * 2 + 3) / STEP);
-  if (mesh && c === cols && r === rows) return;
-  cols = c; rows = r;
-  if (mesh) { scene.remove(mesh); mesh.dispose(); }
-  mesh = new THREE.InstancedMesh(geometry, material, cols * rows);
-  cubes = [];
-  const doorSpot = new THREE.Vector2(-0.55 * ext.w, 0.35 * ext.h);
-  let best = Infinity;
-  for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < cols; i++) {
-      const x = (i - (cols - 1) / 2) * STEP;
-      const y = (j - (rows - 1) / 2) * STEP;
-      const id = cubes.length;
-      cubes.push({ x, y, rest: (Math.random() - 0.5) * 0.06, phase: Math.random() * 6.283, push: 0 });
-      mesh.setColorAt(id, lacquer[0].clone().lerp(lacquer[1], Math.random()));
-      const d = doorSpot.distanceTo(new THREE.Vector2(x, y));
-      if (d < best) { best = d; doorId = id; }
+// ---- Wind: ECCC HRDPS forecast grid -> particles flowing over the terrain ---------------------
+function readTiff(buf) {
+  const dv = new DataView(buf), le = dv.getUint16(0) === 0x4949;
+  const SZ = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 11: 4, 12: 8 };
+  const ifd = dv.getUint32(4, le), n = dv.getUint16(ifd, le), tags = {};
+  for (let i = 0; i < n; i++) {
+    const e = ifd + 2 + i * 12, tag = dv.getUint16(e, le), type = dv.getUint16(e + 2, le), count = dv.getUint32(e + 4, le);
+    const size = SZ[type] || 1, base = count * size <= 4 ? e + 8 : dv.getUint32(e + 8, le);
+    const read = k => type === 3 ? dv.getUint16(k, le) : type === 4 ? dv.getUint32(k, le) : type === 12 ? dv.getFloat64(k, le) : type === 11 ? dv.getFloat32(k, le) : dv.getUint8(k);
+    tags[tag] = Array.from({ length: Math.min(count, 4096) }, (_, j) => read(base + j * size));
+  }
+  if ((tags[259]?.[0] ?? 1) !== 1) throw new Error("compressed GeoTIFF not supported");
+  if (tags[258]?.[0] !== 32) throw new Error(`expected 32-bit samples, got ${tags[258]}`);
+  const w = tags[256][0], ht = tags[257][0], data = new Float32Array(w * ht);
+  let k = 0;
+  tags[273].forEach((off, s) => { for (let b = 0; b < tags[279][s] && k < data.length; b += 4) data[k++] = dv.getFloat32(off + b, le); });
+  // Georeference: pixel scale (33550) and tie point (33922); fall back to the requested box.
+  const sc = tags[33550], tp = tags[33922];
+  const lon0 = tp ? tp[3] : BBOX.w, lat0 = tp ? tp[4] : BBOX.n;
+  const dlon = sc ? sc[0] : (BBOX.e - BBOX.w) / w, dlat = sc ? sc[1] : (BBOX.n - BBOX.s) / ht;
+  return { w, h: ht, data, lon0, lat0, dlon, dlat };
+}
+
+const WIND_URL = (field, iso) => "https://geo.weather.gc.ca/geomet?service=WCS&version=2.0.1&request=GetCoverage"
+  + `&coverageId=HRDPS.CONTINENTAL_${field}&subset=lat(${BBOX.s},${BBOX.n})&subset=lon(${BBOX.w},${BBOX.e})`
+  + `&scalesize=lon(56),lat(28)&format=image/tiff${iso ? `&time=${iso}` : ""}`;
+const windFrames = new Map(); // hour offset -> Promise<{u, v, ...grid}>
+const baseHour = Math.floor(Date.now() / 3600e3) * 3600e3;
+function loadWindFrame(offset) {
+  if (!windFrames.has(offset)) {
+    const iso = new Date(baseHour + offset * 3600e3).toISOString().slice(0, 19) + "Z";
+    const get = f => fetch(WIND_URL(f, iso)).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!/tiff/.test(r.headers.get("content-type") || "")) throw new Error("no forecast for that hour");
+      return r.arrayBuffer();
+    }).then(readTiff);
+    windFrames.set(offset, Promise.all([get("WSPD"), get("WD")]).then(([spd, dir]) => {
+      const u = new Float32Array(spd.data.length), v = new Float32Array(spd.data.length);
+      for (let i = 0; i < u.length; i++) {
+        const s = spd.data[i], d = dir.data[i] * Math.PI / 180;
+        const ok = Number.isFinite(s) && Number.isFinite(d) && s >= 0 && s < 100;
+        // Meteorological direction is where the wind comes FROM; flow goes the other way.
+        u[i] = ok ? -s * Math.sin(d) : 0;
+        v[i] = ok ? -s * Math.cos(d) : 0;
+      }
+      return { ...spd, u, v };
+    }));
+  }
+  return windFrames.get(offset);
+}
+let wind = null;
+function windAt(lon, lat, out) {
+  const g = wind;
+  const fx = (lon - g.lon0) / g.dlon - 0.5, fy = (g.lat0 - lat) / g.dlat - 0.5;
+  if (fx < 0 || fy < 0 || fx > g.w - 1 || fy > g.h - 1) return false;
+  const i = Math.min(g.w - 2, fx | 0), j = Math.min(g.h - 2, fy | 0), tx = fx - i, ty = fy - j, k = j * g.w + i;
+  out[0] = lerp(lerp(g.u[k], g.u[k + 1], tx), lerp(g.u[k + g.w], g.u[k + g.w + 1], tx), ty);
+  out[1] = lerp(lerp(g.v[k], g.v[k + 1], tx), lerp(g.v[k + g.w], g.v[k + g.w + 1], tx), ty);
+  return true;
+}
+
+const N_PARTICLES = narrow ? 3000 : 7000, TRAIL = 14;
+// Particles move 2500x real speed: a 20-knot wind draws a trail of about 3 km per second.
+const TIME_SCALE = 2500;
+const parts = Array.from({ length: N_PARTICLES }, () => ({ lon: 0, lat: 0, age: 0, life: 0, trail: [] }));
+const windGeo = new THREE.BufferGeometry();
+const wPos = new Float32Array(N_PARTICLES * (TRAIL - 1) * 2 * 3), wCol = new Float32Array(N_PARTICLES * (TRAIL - 1) * 2 * 4);
+windGeo.setAttribute("position", new THREE.BufferAttribute(wPos, 3).setUsage(THREE.DynamicDrawUsage));
+windGeo.setAttribute("color", new THREE.BufferAttribute(wCol, 4).setUsage(THREE.DynamicDrawUsage));
+const windLines = new THREE.LineSegments(windGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, fog: true }));
+windLines.frustumCulled = false;
+windLines.visible = false;
+scene.add(windLines);
+const RAMP = ["#D98BB5", "#C24A8A", "#B0176E", "#6E0A44"].map(c => new THREE.Color(c));
+function rampColor(kn, out) {
+  const t = clamp01(kn / 40) * (RAMP.length - 1), i = Math.min(RAMP.length - 2, t | 0);
+  return out.copy(RAMP[i]).lerp(RAMP[i + 1], t - i);
+}
+function respawn(p) {
+  p.lon = lerp(BBOX.w, BBOX.e, Math.random());
+  p.lat = lerp(BBOX.s, BBOX.n, Math.random());
+  p.age = 0;
+  p.life = 2 + Math.random() * 4;
+  p.trail.length = 0;
+}
+parts.forEach(p => { respawn(p); p.age = Math.random() * p.life; });
+
+const uv = [0, 0], tmpC = new THREE.Color();
+function stepWind(dt) {
+  if (!wind || !layerOn.wind) { windLines.visible = false; return; }
+  windLines.visible = true;
+  const alphaScale = 0.85 - night * 0.15;
+  let o3 = 0, o4 = 0;
+  for (const p of parts) {
+    p.age += dt;
+    if (p.age > p.life || !windAt(p.lon, p.lat, uv)) {
+      respawn(p);
+      if (!windAt(p.lon, p.lat, uv)) uv[0] = uv[1] = 0;
+    } else {
+      p.lat += uv[1] * dt * TIME_SCALE / 111000;
+      p.lon += uv[0] * dt * TIME_SCALE / (111000 * Math.cos(p.lat * Math.PI / 180));
+    }
+    const [x, z] = toXZ(p.lon, p.lat);
+    p.trail.unshift(x, Math.max(groundY(x, z), sea.position.y) + 0.06, z);
+    if (p.trail.length > TRAIL * 3) p.trail.length = TRAIL * 3;
+    const kn = Math.hypot(uv[0], uv[1]) * MS_TO_KN;
+    rampColor(kn, tmpC);
+    const fade = Math.min(1, p.age / 0.4, (p.life - p.age) / 0.6);
+    for (let s = 0; s < TRAIL - 1; s++) {
+      const a = 3 * s, b = 3 * (s + 1), has = b + 2 < p.trail.length;
+      for (const [idx, alpha] of [[a, 1 - s / (TRAIL - 1)], [b, 1 - (s + 1) / (TRAIL - 1)]]) {
+        wPos[o3++] = has ? p.trail[idx] : 0; wPos[o3++] = has ? p.trail[idx + 1] : -1; wPos[o3++] = has ? p.trail[idx + 2] : 0;
+        wCol[o4++] = tmpC.r; wCol[o4++] = tmpC.g; wCol[o4++] = tmpC.b; wCol[o4++] = has ? alpha * fade * alphaScale : 0;
+      }
     }
   }
-  scene.add(mesh);
+  windGeo.attributes.position.needsUpdate = true;
+  windGeo.attributes.color.needsUpdate = true;
 }
 
-// Pointer -> point on the wall plane.
-const ray = new THREE.Raycaster();
-const ndc = new THREE.Vector2();
-const wallPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-const hit = new THREE.Vector3(0, -99, 0);
-let pointerOn = false, aimed = 0, overDoor = false;
-
-function aim(e) {
-  ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-  ray.setFromCamera(ndc, camera);
-  pointerOn = !!ray.ray.intersectPlane(wallPlane, hit);
-  const door = cubes[doorId];
-  overDoor = pointerOn && !!door && Math.abs(hit.x - door.x) < STEP / 2 && Math.abs(hit.y - door.y) < STEP / 2;
-  canvas.style.cursor = overDoor ? "pointer" : "default";
+const hourInput = $("hour");
+async function showHour(offset) {
+  const label = $("hour-label"), note = $("hour-note");
+  label.textContent = offset === 0 ? "Wind now" : `Wind ${fmtDayHour.format(baseHour + offset * 3600e3)}`;
+  note.textContent = "loading";
+  try {
+    const g = await loadWindFrame(offset);
+    if (+hourInput.value !== offset) return; // the slider moved on while this loaded
+    wind = g;
+    let max = 0;
+    for (let i = 0; i < g.u.length; i++) max = Math.max(max, Math.hypot(g.u[i], g.v[i]));
+    note.textContent = `strongest ${Math.round(max * MS_TO_KN)} knots`;
+    $("n-wind").textContent = offset === 0 ? "now" : `+${offset} h`;
+    loadWindFrame(Math.min(+hourInput.max, offset + 1)).catch(() => {}); // warm the next frame
+  } catch (err) {
+    console.warn("wind", offset, err);
+    note.textContent = "";
+    if (offset === 0 && !wind) {
+      document.querySelector('[data-layer="wind"]').classList.add("failed");
+      $("n-wind").textContent = "unavailable";
+      label.textContent = "The wind forecast didn't load. Environment Canada's map service may be busy; reload to try again.";
+    } else {
+      label.textContent = `No forecast published yet for ${fmtDayHour.format(baseHour + offset * 3600e3)}`;
+    }
+  }
 }
-canvas.addEventListener("pointermove", aim);
-canvas.addEventListener("pointerleave", () => { pointerOn = false; overDoor = false; });
-canvas.addEventListener("pointerdown", e => { aim(e); if (overDoor) location.href = DOOR; });
+hourInput.addEventListener("input", () => showHour(+hourInput.value));
+let playing = null;
+$("play").addEventListener("click", () => {
+  if (playing) { clearInterval(playing); playing = null; setPlayIcon(false); return; }
+  setPlayIcon(true);
+  playing = setInterval(() => {
+    hourInput.value = (+hourInput.value + 1) % (+hourInput.max + 1);
+    showHour(+hourInput.value);
+  }, 1500);
+});
+function setPlayIcon(on) {
+  $("play-icon").setAttribute("d", on ? "M2 1h3v10H2ZM7 1h3v10H7Z" : "M2 1 11 6 2 11Z");
+  $("play").setAttribute("aria-label", on ? "Pause the wind forecast" : "Play the wind forecast");
+}
 
-let resizeTimer = 0;
+// ---- Lighthouse and airport wind (ECCC surface observations) ---------------------------------
+async function loadStations() {
+  // Lightstations report hourly, airports every minute: a 70-minute window catches both.
+  // Asking for only the wind fields cuts the download from ~8 MB to ~36 KB compressed.
+  const end = new Date(), start = new Date(Date.now() - 70 * 60e3);
+  const iso = d => d.toISOString().slice(0, 19) + "Z";
+  const fields = ["stn_nam-value", "msc_id-value", "obs_date_tm", "air_temp", "max_wnd_spd_10m_pst10mts", "max_wnd_spd_10m_pst1hr",
+    ...["pst10mts", "pst2mts", "pst1mt", "pst1hr"].flatMap(p => [`avg_wnd_spd_10m_${p}`, `avg_wnd_dir_10m_${p}`])];
+  const url = `https://api.weather.gc.ca/collections/swob-realtime/items?bbox=${BBOX.w},${BBOX.s},${BBOX.e},${BBOX.n}&f=json`
+    + `&datetime=${iso(start)}/${iso(end)}&limit=5000&properties=${fields.join(",")}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const latest = new Map();
+    for (const f of (await res.json()).features) {
+      const p = f.properties, id = p["msc_id-value"] || p["stn_nam-value"];
+      const spd = p.avg_wnd_spd_10m_pst10mts ?? p.avg_wnd_spd_10m_pst2mts ?? p.avg_wnd_spd_10m_pst1mt ?? p.avg_wnd_spd_10m_pst1hr;
+      const dir = p.avg_wnd_dir_10m_pst10mts ?? p.avg_wnd_dir_10m_pst2mts ?? p.avg_wnd_dir_10m_pst1mt ?? p.avg_wnd_dir_10m_pst1hr;
+      if (spd == null || dir == null) continue;
+      const t = Date.parse(p.obs_date_tm);
+      if (!latest.has(id) || latest.get(id).t < t) {
+        latest.set(id, { t, name: titleCase(p["stn_nam-value"] || "Station"), spd, dir, gust: p.max_wnd_spd_10m_pst10mts ?? p.max_wnd_spd_10m_pst1hr, temp: p.air_temp, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] });
+      }
+    }
+    for (const s of latest.values()) {
+      const kn = Math.round(s.spd * KMH_TO_KN);
+      // The arrow points where the wind blows TO.
+      const html = `<svg class="arrow" viewBox="0 0 22 22" aria-hidden="true" style="transform: rotate(${(s.dir + 180) % 360}deg)"><path d="M11 2 16 18 11 14 6 18Z" fill="#2E2A24" stroke="#F7EFD9" stroke-width="1"/></svg>`;
+      const m = addMarker({ lon: s.lon, lat: s.lat, cls: "station", html, label: `${kn} kn`, layerName: "stations", onClick: () => stationCard(s) });
+      m.node.setAttribute("aria-label", `${s.name}: wind ${kn} knots from the ${compass(s.dir)}`);
+      m.node.dataset.ax = "12";
+    }
+    $("n-stations").textContent = latest.size;
+  } catch (err) {
+    console.warn("stations", err);
+    document.querySelector('[data-layer="stations"]').classList.add("failed");
+    $("n-stations").textContent = "unavailable";
+  }
+}
+const titleCase = s => s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+function stationCard(s) {
+  openCard("station", body => {
+    const kn = Math.round(s.spd * KMH_TO_KN);
+    body.append(h("h2", s.name));
+    const big = h("div", null, "big");
+    big.append(h("strong", `${kn} kn`), h("span", `from the ${compass(s.dir)}`));
+    body.append(big);
+    const lines = [];
+    if (s.gust != null) lines.push(`Gusting to ${Math.round(s.gust * KMH_TO_KN)} knots.`);
+    if (s.temp != null) lines.push(`Air ${Math.round(s.temp)}°C.`);
+    lines.push(`Measured ${ago(s.t)}.`);
+    body.append(h("p", lines.join(" ")));
+    if (wind && windAt(s.lon, s.lat, uv)) {
+      body.append(h("p", `The forecast model has ${Math.round(Math.hypot(uv[0], uv[1]) * MS_TO_KN)} knots here for ${hourInput.value === "0" ? "this hour" : $("hour-label").textContent.replace("Wind ", "")}.`));
+    }
+  });
+}
+
+// ---- Earthquakes (Earthquakes Canada) --------------------------------------------------------
+const quakeRings = [];
+async function loadQuakes() {
+  const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+  const url = `https://www.earthquakescanada.nrcan.gc.ca/fdsnws/event/1/query?format=text&starttime=${since}&minlatitude=${BBOX.s}&maxlatitude=${BBOX.n}&minlongitude=${BBOX.w}&maxlongitude=${BBOX.e}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = (await res.text()).split("\n").filter(l => l && !l.startsWith("#")).map(l => l.split("|"));
+    for (const r of rows) {
+      const q = { t: Date.parse(r[1]), lat: +r[2], lon: +r[3], depth: +r[4], mag: +r[6], place: (r[7] || "").split("/")[0] };
+      if (!Number.isFinite(q.lat) || !Number.isFinite(q.mag)) continue;
+      const m = addMarker({ lon: q.lon, lat: q.lat, cls: "quake", label: `M${q.mag.toFixed(1)}`, layerName: "quakes", onClick: () => quakeCard(q) });
+      m.node.setAttribute("aria-label", `Earthquake, magnitude ${q.mag.toFixed(1)}, ${q.place}`);
+      m.node.dataset.ax = "10";
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: "#2E2A24", transparent: true, depthWrite: false, fog: true }));
+      ring.userData = { q, base: 0.05 + Math.max(0, q.mag) * 0.07, fresh: Date.now() - q.t < 2 * 864e5, phase: Math.random() };
+      ring.visible = false;
+      scene.add(ring);
+      quakeRings.push(ring);
+    }
+    $("n-quakes").textContent = rows.length;
+  } catch (err) {
+    console.warn("quakes", err);
+    document.querySelector('[data-layer="quakes"]').classList.add("failed");
+    $("n-quakes").textContent = "unavailable";
+  }
+}
+function stepQuakes(t) {
+  for (const r of quakeRings) {
+    const { q, base, fresh, phase } = r.userData;
+    if (!GRID.h) continue;
+    if (!r.userData.placed) { r.position.copy(onGround(q.lon, q.lat, 0.01)); r.userData.placed = true; }
+    r.visible = layerOn.quakes;
+    // Quakes from the last two days keep pulsing; older ones sit as a quiet ring.
+    const k = fresh && !still ? (t * 0.45 + phase) % 1 : 0.6;
+    r.scale.setScalar(base * (0.4 + k * 1.6));
+    r.material.opacity = (fresh ? 1 - k : 0.35) * (night ? 0.9 : 0.8);
+    r.material.color.set(night > 0.5 ? "#EEE6D2" : "#2E2A24");
+  }
+}
+function quakeCard(q) {
+  openCard("quake", body => {
+    body.append(h("h2", q.place || "Earthquake"));
+    const big = h("div", null, "big");
+    big.append(h("strong", `M${q.mag.toFixed(1)}`), h("span", `${Math.round(q.depth)} km deep`));
+    body.append(big);
+    body.append(h("p", `${fmtDayTime.format(q.t)}, ${ago(q.t)}. Most quakes this size are too small to feel; the island sits on the Cascadia subduction zone, where they happen every week.`));
+  });
+}
+
+// ---- Road events (DriveBC Open511) ------------------------------------------------------------
+async function loadRoads() {
+  try {
+    const res = await fetch(`https://api.open511.gov.bc.ca/events?bbox=${BBOX.w},${BBOX.s},${BBOX.e},${BBOX.n}&format=json&status=ACTIVE&limit=500`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { events } = await res.json();
+    for (const ev of events) {
+      const g = ev.geography, c = g.type === "Point" ? g.coordinates : g.type === "LineString" ? g.coordinates[g.coordinates.length >> 1] : null;
+      if (!c) continue;
+      const kind = (ev.event_type || "").toLowerCase().replace("_", " ");
+      const m = addMarker({ lon: c[0], lat: c[1], cls: "road", layerName: "roads", nearOnly: 14, onClick: () => roadCard(ev) });
+      m.node.setAttribute("aria-label", `Road event: ${kind}`);
+    }
+    $("n-roads").textContent = events.length;
+  } catch (err) {
+    console.warn("roads", err);
+    document.querySelector('[data-layer="roads"]').classList.add("failed");
+    $("n-roads").textContent = "unavailable";
+  }
+}
+function roadCard(ev) {
+  openCard("road", body => {
+    const road = (ev.roads || []).map(r => r.name).find(n => n && n !== "Other Roads");
+    const kind = (ev.event_type || "Road event").toLowerCase().replace("_", " ");
+    body.append(h("h2", road || kind.charAt(0).toUpperCase() + kind.slice(1)));
+    body.append(h("p", ev.description || "No details published."));
+    body.append(h("p", `Severity ${(ev.severity || "unknown").toLowerCase()}. From DriveBC.`));
+  });
+}
+
+// ---- Tide (CHS, Victoria Harbour) -------------------------------------------------------------
+const TIDE_STATION = "5cebf1df3d0f4a073c4bbd1e";
+let tide = [], tideOverride = null;
+function tideAt(t) {
+  if (t <= tide[0].t) return tide[0].v;
+  for (let i = 1; i < tide.length; i++) if (tide[i].t >= t) return lerp(tide[i - 1].v, tide[i].v, (t - tide[i - 1].t) / (tide[i].t - tide[i - 1].t));
+  return tide[tide.length - 1].v;
+}
+async function loadTide() {
+  const iso = d => d.toISOString().slice(0, 19) + "Z";
+  const url = `https://api-iwls.dfo-mpo.gc.ca/api/v1/stations/${TIDE_STATION}/data?time-series-code=wlp&from=${iso(new Date(Date.now() - 6 * 3600e3))}&to=${iso(new Date(Date.now() + 18 * 3600e3))}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    tide = (await res.json()).filter((_, i) => i % 10 === 0).map(r => ({ t: Date.parse(r.eventDate), v: r.value }));
+    if (tide.length < 10) throw new Error("too few points");
+    updateTideButton();
+  } catch (err) {
+    console.warn("tide", err);
+    tide = [];
+    $("clock-tide").textContent = "Tide unavailable";
+    $("clock-tide").disabled = true;
+  }
+}
+function updateTideButton() {
+  if (!tide.length) return;
+  const v = tideAt(Date.now()), rising = tideAt(Date.now() + 15 * 60e3) > v;
+  $("clock-tide").textContent = `Tide ${v.toFixed(2)} m and ${rising ? "rising" : "falling"}`;
+}
+function tideCard() {
+  if (!tide.length) return;
+  openCard("tide", body => {
+    const now = Date.now(), v = tideAt(now), rising = tideAt(now + 15 * 60e3) > v;
+    body.append(h("h2", "Victoria Harbour tide"));
+    const big = h("div", null, "big");
+    big.append(h("strong", `${v.toFixed(2)} m`), h("span", rising ? "and rising" : "and falling"));
+    body.append(big);
+    const ext = [];
+    for (let i = 1; i < tide.length - 1; i++) {
+      const [a, b, c] = [tide[i - 1].v, tide[i].v, tide[i + 1].v];
+      if (tide[i].t > now && ((b > a && b >= c) || (b < a && b <= c))) ext.push({ ...tide[i], high: b > a });
+    }
+    const W = 340, H = 120, P = { l: 28, r: 6, t: 12, b: 20 };
+    const t0 = tide[0].t, t1 = tide[tide.length - 1].t, vals = tide.map(d => d.v);
+    const lo = Math.floor(Math.min(...vals)), hi = Math.ceil(Math.max(...vals));
+    const X = t => P.l + (t - t0) / (t1 - t0) * (W - P.l - P.r), Y = m => P.t + (1 - (m - lo) / (hi - lo)) * (H - P.t - P.b);
+    const ns = "http://www.w3.org/2000/svg";
+    const el = (name, attrs, text) => { const n = document.createElementNS(ns, name); for (const k in attrs) n.setAttribute(k, attrs[k]); if (text != null) n.textContent = text; return n; };
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Predicted tide over 24 hours, now ${v.toFixed(2)} metres` });
+    for (let m = lo; m <= hi; m++) {
+      svg.append(el("line", { class: "axis", x1: P.l, x2: W - P.r, y1: Y(m), y2: Y(m) }));
+      svg.append(el("text", { class: "tick", x: P.l - 5, y: Y(m) + 4, "text-anchor": "end" }, `${m} m`));
+    }
+    for (let t = Math.ceil(t0 / 216e5) * 216e5; t < t1; t += 216e5) svg.append(el("text", { class: "tick", x: X(t), y: H - 4, "text-anchor": "middle" }, fmtHour.format(t)));
+    svg.append(el("path", { class: "curve", d: tide.map((d, i) => `${i ? "L" : "M"}${X(d.t).toFixed(1)},${Y(d.v).toFixed(1)}`).join("") }));
+    svg.append(el("line", { class: "now", x1: X(now), x2: X(now), y1: P.t - 4, y2: H - P.b }));
+    svg.append(el("circle", { class: "dot", cx: X(now), cy: Y(v), r: 5 }));
+    for (const x of ext.slice(0, 2)) svg.append(el("circle", { class: "dot", cx: X(x.t), cy: Y(x.v), r: 4 }));
+    const cross = el("line", { class: "cross", y1: P.t - 4, y2: H - P.b, visibility: "hidden" });
+    const dot = el("circle", { class: "dot", r: 5, visibility: "hidden" });
+    svg.append(cross, dot, el("rect", { x: P.l, y: 0, width: W - P.l - P.r, height: H, fill: "transparent" }));
+    const box = h("div", null, "tide-chart"), tip = h("div", null, "tip");
+    tip.hidden = true;
+    box.append(svg, tip);
+    body.append(box);
+    const sentence = ext.slice(0, 2).map((x, i) => `${i ? "then " : ""}${x.high ? "high" : "low"} tide ${x.v.toFixed(1)} m at ${fmtTime.format(x.t)}`).join(", ");
+    if (sentence) body.append(h("p", sentence.charAt(0).toUpperCase() + sentence.slice(1)));
+    body.append(h("p", "Drag along the curve and the sea on the chart follows. Its rise and fall is exaggerated so you can see it."));
+    const scrub = e => {
+      const r = svg.getBoundingClientRect(), t = Math.min(t1, Math.max(t0, t0 + ((e.clientX - r.left) / r.width * W - P.l) / (W - P.l - P.r) * (t1 - t0)));
+      tideOverride = tideAt(t);
+      cross.setAttribute("x1", X(t)); cross.setAttribute("x2", X(t)); cross.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", X(t)); dot.setAttribute("cy", Y(tideOverride)); dot.setAttribute("visibility", "visible");
+      tip.hidden = false; tip.style.left = `${X(t) / W * 100}%`; tip.textContent = `${tideOverride.toFixed(2)} m at ${fmtTime.format(t)}`;
+    };
+    const leave = () => { tideOverride = null; tip.hidden = true; cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); };
+    svg.addEventListener("pointermove", scrub);
+    svg.addEventListener("pointerdown", e => { svg.setPointerCapture(e.pointerId); scrub(e); });
+    svg.addEventListener("pointerleave", leave);
+    svg.addEventListener("pointerup", e => { if (e.pointerType !== "mouse") leave(); });
+  });
+}
+$("clock-tide").addEventListener("click", () => { tideCard(); flyTo("victoria"); });
+addMarker({ lon: -123.371, lat: 48.424, cls: "place", label: "Tide station", onClick: tideCard, nearOnly: 14 }).node.dataset.ax = "8";
+
+// Fisgard Lighthouse. Its light is a door.
+const light = document.createElement("a");
+light.href = DOOR;
+light.tabIndex = -1;
+light.setAttribute("aria-label", "Fisgard Lighthouse");
+addMarker({ lon: -123.4475, lat: 48.4305, cls: "light", el: light, nearOnly: 10 });
+
+// ---- Ferries (bcferriesapi.ca, community service) --------------------------------------------
+const ROUTE = [[-123.410, 48.689], [-123.385, 48.712], [-123.360, 48.765], [-123.335, 48.825], [-123.305, 48.855],
+               [-123.272, 48.874], [-123.215, 48.925], [-123.133, 49.007]];
+let routeCurve = null, routeLine = null, sailings = [];
+const vessels = [];
+function vancouverMinutes(d = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { hour: "numeric", minute: "numeric", hourCycle: "h23", timeZone: TZ }).formatToParts(d).map(x => [x.type, x.value]));
+  return +p.hour * 60 + +p.minute + d.getSeconds() / 60;
+}
+function clockMinutes(s) {
+  const m = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec((s || "").trim());
+  if (!m) return null;
+  return (+m[1] % 12 + (m[3].toLowerCase() === "pm" ? 12 : 0)) * 60 + +m[2];
+}
+function drawRoute() {
+  routeCurve = new THREE.CatmullRomCurve3(ROUTE.map(([lon, lat]) => { const [x, z] = toXZ(lon, lat); return new THREE.Vector3(x, 0.02, z); }));
+  routeLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(routeCurve.getPoints(160)), new THREE.LineDashedMaterial({ color: "#B0176E", dashSize: 0.06, gapSize: 0.04 }));
+  routeLine.computeLineDistances();
+  scene.add(routeLine);
+}
+async function loadFerries() {
+  try {
+    const res = await fetch("https://www.bcferriesapi.ca/v2/capacity/");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { routes } = await res.json();
+    const now = vancouverMinutes();
+    for (const code of ["SWBTSA", "TSASWB"]) {
+      const r = routes.find(x => x.routeCode === code);
+      if (!r) continue;
+      for (const s of r.sailings) {
+        const dep = clockMinutes(s.time), arr = clockMinutes(s.arrivalTime);
+        if (dep == null || arr == null || arr < now) continue;
+        sailings.push({ ...s, dep, arr, from: code === "SWBTSA" ? "Swartz Bay" : "Tsawwassen", reverse: code === "TSASWB" });
+      }
+    }
+    for (const s of sailings.filter(s => s.dep <= now)) {
+      const m = addMarker({ cls: "vessel", label: s.vesselName || "", layerName: "ferries", onClick: ferryCard });
+      m.track = s;
+      m.node.dataset.ax = "8";
+      vessels.push(m);
+    }
+    $("n-ferries").textContent = vessels.length;
+  } catch (err) {
+    console.warn("ferries", err);
+    document.querySelector('[data-layer="ferries"]').classList.add("failed");
+    $("n-ferries").textContent = "unavailable";
+  }
+}
+function stepVessels() {
+  if (!routeCurve) return;
+  routeLine.visible = layerOn.ferries;
+  const now = vancouverMinutes();
+  for (const v of vessels) {
+    const f = clamp01((now - v.track.dep) / (v.track.arr - v.track.dep));
+    v.pos = routeCurve.getPointAt(v.track.reverse ? 1 - f : f).setY(0.04);
+  }
+}
+function ferryCard() {
+  openCard("ferry", body => {
+    body.append(h("h2", "Swartz Bay and Tsawwassen"));
+    body.append(h("p", "The main crossing to the mainland, through Active Pass. About an hour and a half each way."));
+    const now = vancouverMinutes();
+    for (const from of ["Swartz Bay", "Tsawwassen"]) {
+      const rows = sailings.filter(s => s.from === from);
+      const live = rows.filter(s => s.dep <= now), next = rows.filter(s => s.dep > now).slice(0, 2);
+      const table = document.createElement("table");
+      table.createCaption().textContent = `From ${from}`;
+      const head = table.createTHead().insertRow();
+      for (const t of ["Leaves", "Vessel", "Now"]) head.append(h("th", t));
+      const tb = table.createTBody();
+      for (const s of [...live, ...next]) {
+        const tr = tb.insertRow();
+        if (s.dep <= now) tr.className = "live";
+        tr.insertCell().textContent = s.time;
+        tr.insertCell().textContent = s.vesselName || "Vessel not listed";
+        tr.insertCell().textContent = s.dep <= now ? "At sea" : `${Math.max(0, 100 - (s.carFill ?? 0))}% space`;
+      }
+      if (!live.length && !next.length) { const td = tb.insertRow().insertCell(); td.colSpan = 3; td.textContent = "No more sailings today."; }
+      body.append(table);
+    }
+    const p = h("p", "Sailings from ");
+    const a = h("a", "bcferriesapi.ca");
+    a.href = "https://github.com/samuel-pratt/bc-ferries-api";
+    p.append(a, ", a community project not run by BC Ferries.");
+    body.append(p);
+  });
+}
+
+// ---- Layer switches ----------------------------------------------------------------------------
+for (const row of document.querySelectorAll(".layer")) {
+  row.querySelector("input").addEventListener("change", e => { layerOn[row.dataset.layer] = e.target.checked; });
+}
+
+// ---- Frame loop ----------------------------------------------------------------------------
 function resize() {
   camera.aspect = innerWidth / innerHeight;
-  camera.fov = camera.aspect < 0.8 ? 48 : 32;
+  camera.fov = camera.aspect < 0.8 ? 55 : 35;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight, false);
-  if (geometry) buildWall();
 }
-addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 120); });
+addEventListener("resize", resize);
 
-const m4 = new THREE.Matrix4();
-const pos = new THREE.Vector3();
-const quat = new THREE.Quaternion();
-const one = new THREE.Vector3(1, 1, 1);
-
-function tick(ms) {
-  const t = ms / 1000;
-  const breathe = still.matches ? 0 : 0.04;
-  aimed += ((pointerOn ? 1 : 0) - aimed) * 0.08;
-
-  glowUniforms.uCenter.value.set(hit.x, hit.y);
-  glowUniforms.uStrength.value = aimed;
-  glowUniforms.uColor.value.lerp(overDoor ? DOOR_GLOW : GLOW, 0.12);
-  backLight.position.set(hit.x, hit.y, -1.1);
-  backLight.intensity = aimed * 40;
-  backLight.color.copy(glowUniforms.uColor.value);
-
-  for (let i = 0; i < cubes.length; i++) {
-    const c = cubes[i];
-    const d2 = (c.x - hit.x) ** 2 + (c.y - hit.y) ** 2;
-    c.push += (aimed * PUSH * Math.exp(-d2 / SIGMA2) - c.push) * 0.14;
-    pos.set(c.x, c.y, c.rest + Math.sin(t * 1.4 + c.phase) * breathe - c.push);
-    m4.compose(pos, quat, one);
-    mesh.setMatrixAt(i, m4);
+const clock = new THREE.Clock();
+let lastSlow = -1e9;
+function tick(now) {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  stepFlight(now);
+  controls.update();
+  if (tide.length) {
+    const y = SEA_BASE + (tideOverride ?? tideAt(Date.now())) * TIDE_GAIN;
+    sea.position.y = still ? y : lerp(sea.position.y, y, 0.15);
   }
-  mesh.instanceMatrix.needsUpdate = true;
-
+  seaUniforms.uTime.value = still ? 0 : t;
+  // With reduced motion, advance the particles a dozen steps to draw their streaks, then hold still.
+  if (!still) stepWind(dt);
+  else if (wind && (wind.steps = (wind.steps || 0) + 1) <= 14) stepWind(0.04);
+  stepQuakes(t);
+  stepVessels();
+  placeMarkers();
+  // North arrow follows the camera's heading.
+  const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+  $("north").style.transform = `rotate(${(az * 180 / Math.PI).toFixed(1)}deg)`;
+  if (now - lastSlow > 30e3) { lastSlow = now; updateSky(); updateTideButton(); }
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }
 
-geometry = await cubeGeometry();
 resize();
-buildWall();
+const start = pose({ ...VIEWS.island, dist: 75, el: 78 });
+camera.position.copy(start.pos);
+controls.target.copy(start.target);
+controls.update();
+updateSky();
 requestAnimationFrame(tick);
+loadIsland().then(() => {
+  updateSky();
+  drawRoute();
+  flyTo("island", 2600);
+  setTimeout(() => document.body.classList.remove("intro"), still ? 0 : 900);
+}).catch(err => {
+  console.error("island", err);
+  document.body.classList.remove("intro");
+});
+showHour(0);
+loadStations();
+loadQuakes();
+loadRoads();
+loadTide();
+loadFerries();
 </script>
-
 </body>
 </html>

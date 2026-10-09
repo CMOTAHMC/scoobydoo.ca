@@ -1,0 +1,21 @@
+{
+  "source": "NRCan MRDEM-30 DTM, Open Government Licence - Canada",
+  "crs": "EPSG:3005",
+  "bounds_lonlat": [
+    -128.6,
+    48.2,
+    -123.0,
+    51.0
+  ],
+  "bounds_crs": [
+    806291.1032621949,
+    353839.6819480818,
+    1223493.6138114736,
+    669540.4888967716
+  ],
+  "width_px": 2048,
+  "height_px": 1550,
+  "metres_per_px": 203.71216335414,
+  "max_elevation_m": 3017.66943359375,
+  "land_fraction": 0.5191913432459677
+}
